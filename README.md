@@ -219,6 +219,29 @@ GROUP BY
 ---
 **6. Group orders by date to find the average pizzas ordered per day and list the top 5 dates with the highest pizza orders.**
 
+**SQL Query Performed:**
+
+SELECT
+
+    ROUND(AVG(quantity), 0) as Average_Pizza_Order_Per_Day
+    
+FROM
+
+    (SELECT 
+        orders.order_date, SUM(order_details.quantity) AS quantity
+        
+FROM
+    
+        orders
+        
+JOIN
+
+        order_details ON orders.order_id = order_details.order_id
+        
+GROUP BY 
+
+        orders.order_date) AS order_quantity;
+
 **Average:** 138 pizzas per day
 
 **✅ Insight:** Steady daily sales indicate a healthy baseline demand.
@@ -227,6 +250,32 @@ GROUP BY
 
 ---
 **7. Determine the top 3 most ordered pizza types based on revenue.**
+
+**SQL Query Performed:**
+
+SELECT
+
+        pizza_types.name, sum(order_details.quantity*pizzas.price) as Revenue
+        
+FROM
+
+        pizza_types join pizzas
+        
+ON
+
+        pizzas.pizza_type_id = pizza_types.pizza_type_id
+        
+JOIN
+
+        order_details
+        
+ON
+
+        order_details.pizza_id = pizzas.pizza_id
+        
+GROUP BY
+
+        pizza_types.name order by Revenue desc limit 3;
 
 |Pizza_Type|Revenue|
 | ---------| ------- |
@@ -241,6 +290,40 @@ GROUP BY
 ---
 **8. Calculate the percentage contribution of each pizza type to total revenue.**
 
+**SQL Query Performed:**
+
+SELECT
+
+        pizza_types.category, ROUND(
+        SUM(order_details.quantity * pizzas.price) / 
+        (
+            SELECT SUM(order_details.quantity * pizzas.price)
+            FROM order_details
+            JOIN pizzas ON pizzas.pizza_id = order_details.pizza_id
+        ) * 100, 2
+    ) AS revenue
+    
+FROM
+
+        pizza_types 
+        
+JOIN
+
+        pizzas ON pizza_types.pizza_type_id = pizzas.pizza_type_id
+        
+JOIN
+
+        order_details ON order_details.pizza_id = pizzas.pizza_id
+        
+GROUP BY 
+
+        pizza_types.category
+        
+ORDER BY
+
+        revenue DESC;
+
+
 |Category|Revenue Share%|
 | -------| ------------ |
 |Classic|26.91|
@@ -248,9 +331,43 @@ GROUP BY
 |Chicken|23.96|
 |Veggie|23.68|
 
+**✅ Insight:** Revenue is well-distributed across all four categories, with no extreme reliance on one.
+
+**💡 Recommendation:** Maintain menu diversity and continue offering balanced marketing to cater to varied customer preferences.
+
 ---
 
 **9. Analyze the cumulative revenue generated over time.**
+
+**SQL Query Performed:**
+
+SELECT
+
+        order_date, sum(revenue) over (order by order_date) as cum_revenue
+        
+FROM
+
+        (select orders.order_date, sum(order_details.quantity * pizzas.price) as revenue
+        
+FROM
+
+        order_details join pizzas
+        
+ON
+
+        order_details.pizza_id = pizzas.pizza_id
+        
+JOIN
+
+        orders
+        
+ON
+
+        orders.order_id = order_details.order_id
+        
+GROUP BY
+
+        orders.order_date) as sales;
 
 **Total Revenue by Year-End (Dec 31):** $817,860.05
 
@@ -261,6 +378,29 @@ GROUP BY
 ---
 
 **10. Determine the top 3 most ordered pizza types based on revenue for each pizza category.**
+
+**SQL Query Performed:**
+
+SELECT
+
+        category, name, revenue, rn
+        
+FROM
+
+        (select category, name, revenue, rank() over (partition by category order by revenue desc) as rn
+        
+FROM
+
+        (select pizza_types.category, pizza_types.name, sum(order_details.quantity*pizzas.price) as revenue
+        from pizza_types join pizzas
+        on pizza_types.pizza_type_id = pizzas.pizza_type_id
+        join order_details
+        on order_details.pizza_id = pizzas.pizza_id
+        group by pizza_types.category, pizza_types.name) as a) as b
+
+WHERE
+
+        rn <= 3;
 
 |Category|Top Pizza Type|Revenue ($)|
 | -------| ------------ |------|
